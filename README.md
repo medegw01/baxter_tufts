@@ -16,6 +16,6 @@ where:
 - baxter_tufts                -> the name of package
 - pick_and_place_tufts.launch -> the launch file for the gazebo world and the demo python script
 - run_info                    -> run information which will contain the run arguments
-- block_number                -> for this demo, it's from 0 to 4. With 0 being the heaviest and 4, lightest
-- num_of_run                  -> number of desired time thr robot should pick block. Number be greater than 
+- block_number                -> for this demo, it's from 0 to 4. With 0 being the heaviest and 4, the lightest
+- num_of_run                  -> number of desired time the robot should pick block. Number should be greater than 
 
