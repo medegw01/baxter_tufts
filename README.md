@@ -3,12 +3,14 @@
 ## Introduction:
 This package when ran launches gazebo world, a table and a specified block on the table via a python script. The user specifies the block serial number(0 through 4) and the number of times to run the code. The joint_state is recorded into a rosbag. The naming convention for the rosbag file is:
 >                     <baxter__model><Block number>__<Time stamp>.bag
-> e.g                  baxter__model4__2018-08-01-14-25-14.bag
+example:
+>                      baxter__model4__2018-08-01-14-25-14.bag
 
 ## Run:
 To run the code, the user runs the following in the commandline:
-   'roslaunch baxter_tufts pick_and_place_tufts.launch run_info:="block_number num_of_run"'
-e.g'roslaunch baxter_tufts pick_and_place_tufts.launch run_info:="4 1"'
+    `roslaunch baxter_tufts pick_and_place_tufts.launch run_info:="block_number num_of_run"`
+example:
+    `roslaunch baxter_tufts pick_and_place_tufts.launch run_info:="4 1"'
  
 where:
 - baxter_tufts                -> the name of package
