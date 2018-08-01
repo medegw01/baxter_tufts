@@ -35,7 +35,7 @@ import struct
 import sys
 import copy
 import os
-import subprocess
+import subprocess, signal
 
 import rospy
 import rospkg
@@ -242,17 +242,20 @@ def start_rosbag_recording(filename):
     rosbagfile_dir = script_path[:-8]+"/rosbagfiles/"
     
     #  modify the rosbag process with prof Jivko
-    rosbag_process = subprocess.Popen('rosbag record -a -j -o {}'.format(filename), stdin=subprocess.PIPE, shell=True, cwd= rosbagfile_dir)
+    rosbag_process = subprocess.Popen('rosbag record -o {} /robot/joint_states'.format(filename), stdin=subprocess.PIPE, shell=True, cwd= rosbagfile_dir)
     return rosbag_process
     
-def stop_rosbag_recording(rosbag_process):
+def stop_rosbag_recording(p):
     rospy.loginfo(rospy.get_name() + ' stop recording.')
-    rospy.loginfo(rosbag_process.pid)
-    killcommand = "kill -9 " + str(rosbag_process.pid)
-    rospy.loginfo(killcommand)
-    ros_process_end = subprocess.Popen(killcommand, shell=True)
+    rospy.loginfo(p.pid)
+    
+    import psutil
+    process = psutil.Process(p.pid)
+    for sub_process in process.children(recursive=True):
+        sub_process.send_signal(signal.SIGINT)
+    p.wait()  # we wait for children to terminate
+    
     rospy.loginfo("I'm done")
-
 def main():
     """RSDK Inverse Kinematics Pick and Place Example
 
@@ -271,7 +274,8 @@ def main():
     
     #parse argument
     myargv = rospy.myargv(argv=sys.argv)
-    filename = "model"+ str(myargv[1])+"_"
+    filename = "baxter__model"+ str(myargv[1])+"_"
+    num_of_run = int(myargv[2])
     
     # Load Gazebo Models via Spawning Services
     # Note that the models reference is the /world frame
@@ -305,7 +309,7 @@ def main():
   
     pnp.move_to_start(starting_joint_angles)
     
-    for x in range(0,2):
+    for x in range(0,num_of_run):
         if(not rospy.is_shutdown()):
             print("\nPicking...")
             rosbag_process = start_rosbag_recording(filename)
