@@ -19,3 +19,5 @@ where:
 - block_number                -> for this demo, it's from 0 to 4. With 0 being the heaviest and 4, the lightest
 - num_of_run                  -> number of desired time the robot should pick block. Number should be greater than 
 
+## Video demo:
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/GDXMXK_m64g/0.jpg)](https://www.youtube.com/watch?v=GDXMXK_m64g)
