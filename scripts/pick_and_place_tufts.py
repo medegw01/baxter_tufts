@@ -161,7 +161,7 @@ class PickAndPlace(object):
         joint_angles = self.ik_request(pose)
         self._guarded_move_to_joint_position(joint_angles)
 
-    def pick(self, pose):
+    def pick(self, pose, filename):
         # open the gripper
         self.gripper_open()
         # servo above pose
@@ -170,20 +170,22 @@ class PickAndPlace(object):
         self._servo_to_pose(pose)
         # close gripper
         self.gripper_close()
-        # retract to clear object
-        #self._retract()
+        #start to record
+        rosbag_process = start_rosbag_recording(filename)
         self._approach(pose)
+        return rosbag_process
+        
        
 
-    def place(self, pose):
+    def place(self, pose, rosbag_process):
         # servo above pose
         self._approach(pose)
         # servo to pose
         self._servo_to_pose(pose)
         # open the gripper
         self.gripper_open()
-        # retract to clear object
-        #self._retract()
+        # stop rosbag recording
+        stop_rosbag_recording(rosbag_process)
         self._approach(pose)
       
 def load_gazebo_models(box_no = 4, table_pose=Pose(position=Point(x=1.0, y= 0.0, z=0.0)),
@@ -235,6 +237,39 @@ def delete_gazebo_models():
     except rospy.ServiceException, e:
         rospy.loginfo("Delete Model service call failed: {0}".format(e))
 
+def load_gazebo_block(box_no = 4, block_pose=Pose(position=Point(x=0.6725, y= 0.1265, z=0.7825)),
+                       block_reference_frame="world"):
+    # Get Models' Path
+    script_path = os.path.dirname(os.path.abspath(__file__)) 
+    model_path = script_path[:-8]+"/models/"
+     
+    # Load Blocks URDF
+    block_xml = ''
+    block_path = "block/model"+ str(box_no) + ".urdf"
+    with open (model_path + block_path, "r") as block_file:
+        block_xml=block_file.read().replace('\n', '')
+  
+    # Spawn Block URDF
+    rospy.wait_for_service('/gazebo/spawn_urdf_model')
+    try:
+        spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_urdf_model', SpawnModel)
+        resp_urdf = spawn_urdf("block", block_xml, "/",
+                               block_pose, block_reference_frame)
+    except rospy.ServiceException, e:
+        rospy.logerr("Spawn URDF service call failed: {0}".format(e))
+
+def delete_gazebo_block():
+    # This will be called on ROS Exit, deleting Gazebo models
+    # Do not wait for the Gazebo Delete Model service, since
+    # Gazebo should already be running. If the service is not
+    # available since Gazebo has been killed, it is fine to error out
+    try:
+        delete_model = rospy.ServiceProxy('/gazebo/delete_model', DeleteModel)
+        resp_delete = delete_model("block")
+    except rospy.ServiceException, e:
+        rospy.loginfo("Delete Model service call failed: {0}".format(e))
+
+
 def start_rosbag_recording(filename):
     # find the directory to save to
     rospy.loginfo(rospy.get_name() + ' start')
@@ -274,7 +309,7 @@ def main():
     
     #parse argument
     myargv = rospy.myargv(argv=sys.argv)
-    filename = "baxter__model"+ str(myargv[1])+"_"
+    filename = "baxter_pick_and_place__model"+ str(myargv[1])+"_"
     num_of_run = int(myargv[2])
     
     # Load Gazebo Models via Spawning Services
@@ -311,12 +346,11 @@ def main():
     
     for x in range(0,num_of_run):
         if(not rospy.is_shutdown()):
-            print("\nPicking...")
-            rosbag_process = start_rosbag_recording(filename)
-            pnp.pick(block_pose)
-            print("\nPlacing...")
-            pnp.place(block_pose)
-            stop_rosbag_recording(rosbag_process)
+            rosbag_process =  pnp.pick(block_pose, filename)
+            pnp.place(block_pose, rosbag_process)
+            delete_gazebo_block()
+            load_gazebo_block(myargv[1])
+            
         else:
             break
    

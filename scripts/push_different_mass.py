@@ -35,7 +35,7 @@ import struct
 import sys
 import copy
 import os
-import time
+import subprocess, signal
 
 import rospy
 import rospkg
@@ -137,17 +137,26 @@ class PickAndPlace(object):
     def _approach(self, pose):
         approach = copy.deepcopy(pose)
         # approach with a pose the hover-distance above the requested pose
-        approach.position.z = approach.position.z + self._hover_distance
+        approach.position.y = approach.position.y + self._hover_distance
         joint_angles = self.ik_request(approach)
         self._guarded_move_to_joint_position(joint_angles)
-
+        
+    def _push(self, pose,rosbag_process):
+        approach = copy.deepcopy(pose)
+        # approach with a pose the hover-distance above the requested pose
+        approach.position.y = approach.position.y + -0.04
+        joint_angles = self.ik_request(approach)
+        self._guarded_move_to_joint_position(joint_angles)
+        stop_rosbag_recording(rosbag_process)
+        delete_gazebo_block()
+            
     def _retract(self):
         # retrieve current pose from endpoint
         current_pose = self._limb.endpoint_pose()
         ik_pose = Pose()
         ik_pose.position.x = current_pose['position'].x 
-        ik_pose.position.y = current_pose['position'].y 
-        ik_pose.position.z = current_pose['position'].z + self._hover_distance
+        ik_pose.position.y = current_pose['position'].y + self._hover_distance
+        ik_pose.position.z = current_pose['position'].z 
         ik_pose.orientation.x = current_pose['orientation'].x 
         ik_pose.orientation.y = current_pose['orientation'].y 
         ik_pose.orientation.z = current_pose['orientation'].z 
@@ -161,48 +170,38 @@ class PickAndPlace(object):
         joint_angles = self.ik_request(pose)
         self._guarded_move_to_joint_position(joint_angles)
 
-    def pick(self, pose):
-        # open the gripper
-        self.gripper_open()
-        # servo above pose
-        self._approach(pose)
-        # servo to pose
-        self._servo_to_pose(pose)
-        # close gripper
+    def reach(self, pose, filename):
+        # close the gripper
         self.gripper_close()
-        # retract to clear object
-        #self._retract()
-        self._approach(pose)
-        print("***********************")
-
-    def place(self, pose):
         # servo above pose
         self._approach(pose)
         # servo to pose
         self._servo_to_pose(pose)
-        # open the gripper
-        self.gripper_open()
-        # retract to clear object
-        #self._retract()
-        self._approach(pose)
-        print(">>>>>>>>>>>>>>>>>>")
-
-def load_gazebo_models(table_pose=Pose(position=Point(x=1.0, y=0.0, z=0.0)),
+        #start to record
+        rosbag_process = start_rosbag_recording(filename)
+        self._push(pose, rosbag_process)
+    
+      
+def load_gazebo_models(box_no = 4, table_pose=Pose(position=Point(x=1.0, y= 0.0, z=0.0)),
                        table_reference_frame="world",
-                       block_pose=Pose(position=Point(x=0.6725, y=0.1265, z=0.7825)),
+                       block_pose=Pose(position=Point(x=0.6725, y= 0.1265, z=0.7825)),
                        block_reference_frame="world"):
     # Get Models' Path
     script_path = os.path.dirname(os.path.abspath(__file__)) 
     model_path = script_path[:-8]+"/models/"
+    
     # Load Table SDF
     table_xml = ''
     with open (model_path + "cafe_table/model.sdf", "r") as table_file:
         table_xml=table_file.read().replace('\n', '')
-    # Load Block URDF
+    
+    # Load Blocks URDF
     block_xml = ''
-    with open (model_path + "block/model.urdf", "r") as block_file:
+    block_path = "block/model"+ str(box_no) + ".urdf"
+    with open (model_path + block_path, "r") as block_file:
         block_xml=block_file.read().replace('\n', '')
-    # Spawn Table SDF
+  
+   # Spawn Table SDF
     rospy.wait_for_service('/gazebo/spawn_sdf_model')
     try:
         spawn_sdf = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
@@ -210,7 +209,8 @@ def load_gazebo_models(table_pose=Pose(position=Point(x=1.0, y=0.0, z=0.0)),
                              table_pose, table_reference_frame)
     except rospy.ServiceException, e:
         rospy.logerr("Spawn SDF service call failed: {0}".format(e))
-    # Spawn Block URDF
+   
+   # Spawn Block URDF
     rospy.wait_for_service('/gazebo/spawn_urdf_model')
     try:
         spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_urdf_model', SpawnModel)
@@ -231,6 +231,60 @@ def delete_gazebo_models():
     except rospy.ServiceException, e:
         rospy.loginfo("Delete Model service call failed: {0}".format(e))
 
+def load_gazebo_block(box_no = 4, block_pose=Pose(position=Point(x=0.6725, y= 0.1265, z=0.7825)),
+                       block_reference_frame="world"):
+    # Get Models' Path
+    script_path = os.path.dirname(os.path.abspath(__file__)) 
+    model_path = script_path[:-8]+"/models/"
+     
+    # Load Blocks URDF
+    block_xml = ''
+    block_path = "block/model"+ str(box_no) + ".urdf"
+    with open (model_path + block_path, "r") as block_file:
+        block_xml=block_file.read().replace('\n', '')
+  
+    # Spawn Block URDF
+    rospy.wait_for_service('/gazebo/spawn_urdf_model')
+    try:
+        spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_urdf_model', SpawnModel)
+        resp_urdf = spawn_urdf("block", block_xml, "/",
+                               block_pose, block_reference_frame)
+    except rospy.ServiceException, e:
+        rospy.logerr("Spawn URDF service call failed: {0}".format(e))
+
+def delete_gazebo_block():
+    # This will be called on ROS Exit, deleting Gazebo models
+    # Do not wait for the Gazebo Delete Model service, since
+    # Gazebo should already be running. If the service is not
+    # available since Gazebo has been killed, it is fine to error out
+    try:
+        delete_model = rospy.ServiceProxy('/gazebo/delete_model', DeleteModel)
+        resp_delete = delete_model("block")
+    except rospy.ServiceException, e:
+        rospy.loginfo("Delete Model service call failed: {0}".format(e))
+
+
+def start_rosbag_recording(filename):
+    # find the directory to save to
+    rospy.loginfo(rospy.get_name() + ' start')
+    script_path = os.path.dirname(os.path.abspath(__file__))
+    rosbagfile_dir = script_path[:-8]+"/rosbagfiles/"
+    
+    #  modify the rosbag process with prof Jivko
+    rosbag_process = subprocess.Popen('rosbag record -o {} /robot/joint_states'.format(filename), stdin=subprocess.PIPE, shell=True, cwd= rosbagfile_dir)
+    return rosbag_process
+    
+def stop_rosbag_recording(p):
+    rospy.loginfo(rospy.get_name() + ' stop recording.')
+    rospy.loginfo(p.pid)
+    
+    import psutil
+    process = psutil.Process(p.pid)
+    for sub_process in process.children(recursive=True):
+        sub_process.send_signal(signal.SIGINT)
+    p.wait()  # we wait for children to terminate
+    
+    rospy.loginfo("I'm done")
 def main():
     """RSDK Inverse Kinematics Pick and Place Example
 
@@ -245,37 +299,55 @@ def main():
     can improve on this demo by adding perception and feedback to close
     the loop.
     """
-    rospy.init_node("ik_pick_and_place_demo")
+    rospy.init_node("push_different_mass")
+    
+    #parse argument
+    myargv = rospy.myargv(argv=sys.argv)
+    filename = "baxter_push_different_mass__model"+ str(myargv[1])+"_"
+    num_of_run = int(myargv[2])
+    
     # Load Gazebo Models via Spawning Services
     # Note that the models reference is the /world frame
     # and the IK operates with respect to the /base frame
-    load_gazebo_models()
+    load_gazebo_models(myargv[1])
     # Remove models from the scene on shutdown
     rospy.on_shutdown(delete_gazebo_models)
-   
-   
-      
+
     # Wait for the All Clear from emulator startup
     rospy.wait_for_message("/robot/sim/started", Empty)
 
-
-    joint_nm = {"left_s0","left_s1","left_e0","left_e1","left_w0","left_w1","left_w2"}
-    angles = [0]*7
-   # angles={1.16565170925,-0.991808071408,-1.18551321178,1.93271886955,0.668933401968,1.02510069383,}
-    agl = {-1.5491439427,0.634821609499,-0.100054530413,-0.0500038375011,0.000130809251528,-0.54348350928,0.000140858901544}
-    start_pos = dict(zip(joint_nm, angles))
-    st = dict(zip(joint_nm, agl))
-    print(start_pos)
-   
-    limb = baxter_interface.Limb('left')
-    gribber = baxter_interface.Gripper('left')
-    gribber.close()
-    limb.move_to_joint_positions(start_pos)
-    time.sleep(3)
-    limb.move_to_joint_positions(st)
-    while not rospy.is_shutdown():
-       #print("hello")
-       pass
+    limb = 'left'
+    hover_distance = 0.07 # meters
+    # Starting Joint angles for left arm
+    starting_joint_angles = {'left_w0': 0.6699952259595108,
+                             'left_w1': 1.030009435085784,
+                             'left_w2': -0.4999997247485215,
+                             'left_e0': -1.189968899785275,
+                             'left_e1': 1.9400238130755056,
+                             'left_s0': -0.08000397926829805,
+                             'left_s1': -0.9999781166910306}
+    pnp = PickAndPlace(limb, hover_distance)
+    # An orientation for gripper fingers to be overhead and parallel to the obj
+    overhead_orientation = Quaternion(
+                             x=-0.0249590815779,
+                             y=0.999649402929,
+                             z=0.00737916180073,
+                             w=0.00486450832011)
+    
+    block_pose = Pose(position= Point(x=0.7, y=0.15, z=-0.129), orientation=overhead_orientation)
+  
+    pnp.move_to_start(starting_joint_angles)
+    
+    for x in range(0,num_of_run):
+        if(not rospy.is_shutdown()):
+            pnp.reach(block_pose, filename)
+            pnp.move_to_start(starting_joint_angles)
+            load_gazebo_block(myargv[1])
+            
+        else:
+            break
+    
+    pnp.move_to_start(starting_joint_angles)
     return 0
 
 if __name__ == '__main__':
