@@ -62,7 +62,7 @@ from baxter_core_msgs.srv import (
 
 import baxter_interface
 
-class PickAndPlace(object):
+class PushMass(object):
     def __init__(self, limb, hover_distance = 0.2, verbose=True):
         self._limb_name = limb # string
         self._hover_distance = hover_distance # in meters
@@ -326,7 +326,7 @@ def main():
                              'left_e1': 1.9400238130755056,
                              'left_s0': -0.08000397926829805,
                              'left_s1': -0.9999781166910306}
-    pnp = PickAndPlace(limb, hover_distance)
+    pnp = PushMass(limb, hover_distance)
     # An orientation for gripper fingers to be overhead and parallel to the obj
     overhead_orientation = Quaternion(
                              x=-0.0249590815779,

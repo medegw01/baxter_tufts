@@ -62,7 +62,7 @@ from baxter_core_msgs.srv import (
 
 import baxter_interface
 
-class PickAndPlace(object):
+class ShakeMass(object):
     def __init__(self, limb, hover_distance = 0.2, verbose=True):
         self._limb_name = limb # string
         self._hover_distance = hover_distance # in meters
@@ -140,14 +140,57 @@ class PickAndPlace(object):
         approach.position.z = approach.position.z + self._hover_distance
         joint_angles = self.ik_request(approach)
         self._guarded_move_to_joint_position(joint_angles)
-
+    
+    def _approach_left(self, pose):
+        current_pose = self._limb.endpoint_pose()
+        ik_pose = Pose()
+        ik_pose.position.x = current_pose['position'].x 
+        ik_pose.position.y = current_pose['position'].y + 2*(self._hover_distance)
+        ik_pose.position.z = current_pose['position'].z 
+        ik_pose.orientation.x = current_pose['orientation'].x 
+        ik_pose.orientation.y = current_pose['orientation'].y 
+        ik_pose.orientation.z = current_pose['orientation'].z 
+        ik_pose.orientation.w = current_pose['orientation'].w
+        joint_angles = self.ik_request(ik_pose)
+        # servo up from current pose
+        self._guarded_move_to_joint_position(joint_angles)
+    
+    def _approach_right(self, pose):
+        current_pose = self._limb.endpoint_pose()
+        ik_pose = Pose()
+        ik_pose.position.x = current_pose['position'].x 
+        ik_pose.position.y = current_pose['position'].y - 2*(self._hover_distance)
+        ik_pose.position.z = current_pose['position'].z 
+        ik_pose.orientation.x = current_pose['orientation'].x 
+        ik_pose.orientation.y = current_pose['orientation'].y 
+        ik_pose.orientation.z = current_pose['orientation'].z 
+        ik_pose.orientation.w = current_pose['orientation'].w
+        joint_angles = self.ik_request(ik_pose)
+        # servo up from current pose
+        self._guarded_move_to_joint_position(joint_angles)
+    
+    def _shake(self, pose,rosbag_process):
+        self._approach(pose)
+        #shakes the block
+        for x in range(0,5):
+            self._approach_left(pose)
+            self._approach_right(pose)
+        
+        self._approach(pose)
+        # servo to pose
+        self._servo_to_pose(pose)
+        # open the gripper
+        self.gripper_open()
+        stop_rosbag_recording(rosbag_process)
+        delete_gazebo_block()
+            
     def _retract(self):
         # retrieve current pose from endpoint
         current_pose = self._limb.endpoint_pose()
         ik_pose = Pose()
         ik_pose.position.x = current_pose['position'].x 
-        ik_pose.position.y = current_pose['position'].y 
-        ik_pose.position.z = current_pose['position'].z + self._hover_distance
+        ik_pose.position.y = current_pose['position'].y + self._hover_distance
+        ik_pose.position.z = current_pose['position'].z 
         ik_pose.orientation.x = current_pose['orientation'].x 
         ik_pose.orientation.y = current_pose['orientation'].y 
         ik_pose.orientation.z = current_pose['orientation'].z 
@@ -161,32 +204,19 @@ class PickAndPlace(object):
         joint_angles = self.ik_request(pose)
         self._guarded_move_to_joint_position(joint_angles)
 
-    def pick(self, pose, filename):
-        # open the gripper
+    def reach(self, pose, filename):
+        # close the gripper
         self.gripper_open()
         # servo above pose
         self._approach(pose)
         # servo to pose
         self._servo_to_pose(pose)
-        # close gripper
+         # close gripper
         self.gripper_close()
         #start to record
         rosbag_process = start_rosbag_recording(filename)
-        self._approach(pose)
-        return rosbag_process
-        
-       
-
-    def place(self, pose, rosbag_process):
-        # servo above pose
-        self._approach(pose)
-        # servo to pose
-        self._servo_to_pose(pose)
-        # open the gripper
-        self.gripper_open()
-        # stop rosbag recording
-        stop_rosbag_recording(rosbag_process)
-        self._approach(pose)
+        self._shake(pose, rosbag_process)
+      
       
 def load_gazebo_models(box_no = 4, table_pose=Pose(position=Point(x=1.0, y= 0.0, z=0.0)),
                        table_reference_frame="world",
@@ -305,11 +335,11 @@ def main():
     can improve on this demo by adding perception and feedback to close
     the loop.
     """
-    rospy.init_node("pick_and_place_tufts")
+    rospy.init_node("shake_different_mass")
     
     #parse argument
     myargv = rospy.myargv(argv=sys.argv)
-    filename = "baxter_pick_and_place__model"+ str(myargv[1])+"_"
+    filename = "baxter_shake_different_mass__model"+ str(myargv[1])+"_"
     num_of_run = int(myargv[2])
     
     # Load Gazebo Models via Spawning Services
@@ -323,7 +353,7 @@ def main():
     rospy.wait_for_message("/robot/sim/started", Empty)
 
     limb = 'left'
-    hover_distance = 0.15 # meters
+    hover_distance = 0.07 # meters
     # Starting Joint angles for left arm
     starting_joint_angles = {'left_w0': 0.6699952259595108,
                              'left_w1': 1.030009435085784,
@@ -332,7 +362,7 @@ def main():
                              'left_e1': 1.9400238130755056,
                              'left_s0': -0.08000397926829805,
                              'left_s1': -0.9999781166910306}
-    pnp = PickAndPlace(limb, hover_distance)
+    pnp = ShakeMass(limb, hover_distance)
     # An orientation for gripper fingers to be overhead and parallel to the obj
     overhead_orientation = Quaternion(
                              x=-0.0249590815779,
@@ -346,15 +376,16 @@ def main():
     
     for x in range(0,num_of_run):
         if(not rospy.is_shutdown()):
-            rosbag_process =  pnp.pick(block_pose, filename)
-            pnp.place(block_pose, rosbag_process)
+            pnp.reach(block_pose, filename)
+            pnp.gripper_open()
             pnp.move_to_start(starting_joint_angles)
             delete_gazebo_block()
             load_gazebo_block(myargv[1])
             
         else:
             break
-   
+    
+    pnp.move_to_start(starting_joint_angles)
     return 0
 
 if __name__ == '__main__':
