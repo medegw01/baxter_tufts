@@ -380,7 +380,7 @@ def main():
     
     #parse argument
     myargv = rospy.myargv(argv=sys.argv)
-    filename = "wobble"+ str(myargv[1])+"_"
+    filename = "baxter_wobbler__model"+ str(myargv[1])+"_"
     num_of_run = int(myargv[2])
     
     # Load Gazebo Models via Spawning Services
