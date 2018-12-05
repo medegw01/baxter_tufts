@@ -3,7 +3,7 @@
   <!-- We resume the logic in empty_world.launch, changing the name of the world to be launched -->
   <include file="$(find baxter_gazebo)/launch/baxter_world.launch"/>
 
-  <!-- Start the Baxter pick and place demo -->
+  <!-- Start the Baxter push mass demo -->
   <node pkg="baxter_tufts" type="push_different_mass.py" name="push_different_mass" args= "$(arg run_info)" />
 
 </launch>
