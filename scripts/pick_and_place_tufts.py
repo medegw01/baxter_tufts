@@ -162,23 +162,26 @@ class PickAndPlace(object):
         self._guarded_move_to_joint_position(joint_angles)
 
     def pick(self, pose, filename):
-        # open the gripper
-        self.gripper_open()
-        # servo above pose
-        self._approach(pose)
-        # servo to pose
-        self._servo_to_pose(pose)
-        # close gripper
-        self.gripper_close()
-        #start to record
-        rosbag_process = start_rosbag_recording(filename)
-        self._approach(pose)
-        return rosbag_process
-        
+		fn = "baxter_pick_model" + filename+"_"
+		 # open the gripper
+		self.gripper_open()
+		# servo above pose
+		self._approach(pose)
+		     # servo to pose
+		self._servo_to_pose(pose)
+		# close gripper
+		self.gripper_close()
+		#start to record
+		rosbag_process = start_rosbag_recording(fn)
+		self._approach(pose)
+		stop_rosbag_recording(rosbag_process)
+               
        
 
-    def place(self, pose, rosbag_process):
+    def place(self, pose, filename):
         # servo above pose
+        fn = "baxter_place_model" + filename+"_"
+        rosbag_process = start_rosbag_recording(fn)
         self._approach(pose)
         # servo to pose
         self._servo_to_pose(pose)
@@ -309,7 +312,7 @@ def main():
     
     #parse argument
     myargv = rospy.myargv(argv=sys.argv)
-    filename = "baxter_pick_and_place__model"+ str(myargv[1])+"_"
+    filename = str(myargv[1])
     num_of_run = int(myargv[2])
     
     # Load Gazebo Models via Spawning Services
@@ -346,8 +349,8 @@ def main():
     
     for x in range(0,num_of_run):
         if(not rospy.is_shutdown()):
-            rosbag_process =  pnp.pick(block_pose, filename)
-            pnp.place(block_pose, rosbag_process)
+            pnp.pick(block_pose, filename)
+            pnp.place(block_pose, filename)
             pnp.move_to_start(starting_joint_angles)
             delete_gazebo_block()
             load_gazebo_block(myargv[1])
