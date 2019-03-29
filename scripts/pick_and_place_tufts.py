@@ -34,6 +34,8 @@ import argparse
 import struct
 import sys
 import copy
+import time
+import random
 import os
 import subprocess, signal
 
@@ -162,25 +164,24 @@ class PickAndPlace(object):
         self._guarded_move_to_joint_position(joint_angles)
 
     def pick(self, pose, filename):
-		fn = "baxter_pick_model" + filename+"_"
-		 # open the gripper
+		fn = "baxter_grasp_model_" + filename
+		filename = "baxter_pick_model_" + filename
+		rps = start_rosbag_recording(fn)
+		time.sleep(0.5)
 		self.gripper_open()
-		# servo above pose
 		self._approach(pose)
-		     # servo to pose
 		self._servo_to_pose(pose)
-		# close gripper
 		self.gripper_close()
-		#start to record
-		rosbag_process = start_rosbag_recording(fn)
+		stop_rosbag_recording(rps)
+		rosbag_process = start_rosbag_recording(filename)
+		time.sleep(0.5)
 		self._approach(pose)
 		stop_rosbag_recording(rosbag_process)
-               
        
 
     def place(self, pose, filename):
         # servo above pose
-        fn = "baxter_place_model" + filename+"_"
+        fn = "baxter_place_model" + filename
         rosbag_process = start_rosbag_recording(fn)
         self._approach(pose)
         # servo to pose
@@ -294,6 +295,15 @@ def stop_rosbag_recording(p):
     p.wait()  # we wait for children to terminate
     
     rospy.loginfo("I'm done")
+
+def addnoise_pose(overhead_orientation):
+	pose = Pose(position= Point(x=0.7, y=0.15, z=-0.129), orientation=overhead_orientation)
+	x = random.uniform(-0.09, 0.09)
+	y = random.uniform(-0.09, 0.09)
+	pose.position.x = pose.position.x + x
+	pose.position.y = pose.position.y + y
+	return pose
+	
 def main():
     """RSDK Inverse Kinematics Pick and Place Example
 
@@ -312,8 +322,8 @@ def main():
     
     #parse argument
     myargv = rospy.myargv(argv=sys.argv)
-    filename = str(myargv[1])
-    num_of_run = int(myargv[2])
+    filename = str(0)
+    num_of_run = int(myargv[1])
     
     # Load Gazebo Models via Spawning Services
     # Note that the models reference is the /world frame
@@ -343,20 +353,24 @@ def main():
                              z=0.00737916180073,
                              w=0.00486450832011)
     
-    block_pose = Pose(position= Point(x=0.7, y=0.15, z=-0.129), orientation=overhead_orientation)
+    block_pose = Pose(position= Point(x=0.7, y=0.15, z=-0.145), orientation=overhead_orientation)
   
-    pnp.move_to_start(starting_joint_angles)
+    pnp.move_to_start(starting_joint_angles) 
+    for x in range(0,12):
+		filename = str(x)
+		for y in range(0,num_of_run):
+			if(not rospy.is_shutdown()):
+				pnp.pick(block_pose, filename)
+				tmp = addnoise_pose(overhead_orientation)
+				pnp.place(tmp, filename)
+				pnp.gripper_open()
+				pnp.move_to_start(starting_joint_angles)
+				delete_gazebo_block()
+				load_gazebo_block(filename)
+			else:
+				break
     
-    for x in range(0,num_of_run):
-        if(not rospy.is_shutdown()):
-            pnp.pick(block_pose, filename)
-            pnp.place(block_pose, filename)
-            pnp.move_to_start(starting_joint_angles)
-            delete_gazebo_block()
-            load_gazebo_block(myargv[1])
-            
-        else:
-            break
+   
    
     return 0
 

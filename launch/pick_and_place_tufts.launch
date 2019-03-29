@@ -5,6 +5,6 @@
   <include file="$(find baxter_gazebo)/launch/baxter_world.launch"/>
 
   <!-- Start the Baxter pick and place demo -->
-  <node pkg="baxter_tufts" type="pick_and_place_tufts.py" name="pick_and_place_tufts" args= "$(arg run_info)" />
+  <node pkg="baxter_tufts" type="pick_and_place_tufts.py" name="pick_and_place_tufts" args= "$(arg num_of_run)" />
 
 </launch>
