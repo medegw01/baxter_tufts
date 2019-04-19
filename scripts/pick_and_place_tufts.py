@@ -181,7 +181,7 @@ class PickAndPlace(object):
 
     def place(self, pose, filename):
         # servo above pose
-        fn = "baxter_place_model" + filename
+        fn = "baxter_place_model_" + filename
         rosbag_process = start_rosbag_recording(fn)
         self._approach(pose)
         # servo to pose
@@ -328,7 +328,7 @@ def main():
     # Load Gazebo Models via Spawning Services
     # Note that the models reference is the /world frame
     # and the IK operates with respect to the /base frame
-    load_gazebo_models(myargv[1])
+    load_gazebo_models(0)
     # Remove models from the scene on shutdown
     rospy.on_shutdown(delete_gazebo_models)
 
@@ -366,7 +366,7 @@ def main():
 				pnp.gripper_open()
 				pnp.move_to_start(starting_joint_angles)
 				delete_gazebo_block()
-				load_gazebo_block(filename)
+				load_gazebo_block(x)
 			else:
 				break
     

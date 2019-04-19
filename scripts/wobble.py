@@ -33,6 +33,7 @@ import random
 import struct
 import sys
 import copy
+import time
 import os
 import subprocess, signal
 
@@ -177,13 +178,10 @@ class Wobbler(object):
         # close gripper
         self.gripper_close()
         #start to record
-        rosbag_process = start_rosbag_recording(filename)
         self._approach(pose)
-        return rosbag_process
+        self.wobble(filename, pose)
         
-       
-
-    def place(self, pose, rosbag_process):
+    def place(self, pose):
         # servo above pose
         self._approach(pose)
         # servo to pose
@@ -191,8 +189,8 @@ class Wobbler(object):
         # open the gripper
         self.gripper_open()
         # stop rosbag recording
-        stop_rosbag_recording(rosbag_process)
         self._approach(pose)
+        
         
     def _reset_control_modes(self):
         rate = rospy.Rate(self._rate)
@@ -223,11 +221,14 @@ class Wobbler(object):
             self._rs.disable()
         return True
 
-    def wobble(self, rosbag_process, pose):
+    def wobble(self, filename, pose):
         self.set_neutral()
         """
         Performs the wobbling of both arms.
         """
+        time.sleep(0.5)
+        fn = "baxter_shake_model_" + filename
+        rosbag_process = start_rosbag_recording(fn)
         rate = rospy.Rate(self._rate)
         start = rospy.Time.now()
 
@@ -236,7 +237,7 @@ class Wobbler(object):
             returns a randomly parameterized cosine function to control a
             specific joint.
             """
-            period_factor = 0.5#random.uniform(0.3, 0.5)
+            period_factor = random.uniform(0.3, 0.5)
             amplitude_factor = 0.45#random.uniform(0.1, 0.2)
 
             def v_func(elapsed):
@@ -269,7 +270,10 @@ class Wobbler(object):
             #print(cmd)
             #self._right_arm.set_joint_velocities(cmd)
             rate.sleep()
-        self.place(pose, rosbag_process)
+        self.set_neutral()
+        stop_rosbag_recording(rosbag_process)
+        time.sleep(0.5)
+        self.place(pose)
 
 def load_gazebo_models(box_no = 4, table_pose=Pose(position=Point(x=1.0, y= 0.0, z=0.0)),
                        table_reference_frame="world",
@@ -364,7 +368,7 @@ def start_rosbag_recording(filename):
     return rosbag_process
     
 def stop_rosbag_recording(p):
-    rospy.loginfo(rospy.get_name() + ' stop recording.')
+    rospy.loginfo(rospy.get_name()   + ' stop recording.')
     rospy.loginfo(p.pid)
     
     import psutil
@@ -380,13 +384,13 @@ def main():
     
     #parse argument
     myargv = rospy.myargv(argv=sys.argv)
-    filename = "baxter_wobbler__model"+ str(myargv[1])+"_"
-    num_of_run = int(myargv[2])
+    filename = "0"
+    num_of_run = int(myargv[1])
     
     # Load Gazebo Models via Spawning Services
     # Note that the models reference is the /world frame
     # and the IK operates with respect to the /base frame
-    load_gazebo_models(myargv[1])
+    load_gazebo_models(0)
     # Remove models from the scene on shutdown
     rospy.on_shutdown(delete_gazebo_models)
 
@@ -408,21 +412,22 @@ def main():
                              z=0.00737916180073,
                              w=0.00486450832011)
     
-    block_pose = Pose(position= Point(x=0.7, y=0.15, z=-0.129), orientation=overhead_orientation)
+    block_pose = Pose(position= Point(x=0.7, y=0.15, z=-0.145), orientation=overhead_orientation)
     wobbler = Wobbler()
     
-    for x in range(0,num_of_run):
-        if(not rospy.is_shutdown()):
-			wobbler.move_to_start(starting_joint_angles)
-			rosbag_process =  wobbler.pick(block_pose, filename)
-			rospy.on_shutdown(wobbler.clean_shutdown)
-			wobbler.wobble(rosbag_process, block_pose)
-			wobbler.move_to_start(starting_joint_angles)
-			delete_gazebo_block()
-			load_gazebo_block(myargv[1])
-            
-        else:
-            break
+    for x in range(0,12):
+        filename = str(x)
+        for y in range(0,num_of_run):
+            if(not rospy.is_shutdown()):
+                wobbler.move_to_start(starting_joint_angles)
+                wobbler.pick(block_pose, filename)
+                wobbler.gripper_open()
+                rospy.on_shutdown(wobbler.clean_shutdown)
+                wobbler.move_to_start(starting_joint_angles)
+                delete_gazebo_block()
+                load_gazebo_block(x)
+            else:
+                break
     
     print("Done.")
 
