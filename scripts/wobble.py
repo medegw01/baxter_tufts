@@ -228,7 +228,11 @@ class Wobbler(object):
         """
         time.sleep(0.5)
         fn = "baxter_shake_model_" + filename
-        rosbag_process = start_rosbag_recording(fn)
+        fn2 = "baxter_hold_model_" + filename
+        rp2 = start_rosbag_recording(fn2)
+        time.sleep(5.0)
+        stop_rosbag_recording(rp2)
+        
         rate = rospy.Rate(self._rate)
         start = rospy.Time.now()
 
@@ -253,6 +257,7 @@ class Wobbler(object):
 
         print("Wobbling. Press Ctrl-C to stop...")
         num_= 5000;
+        rp = start_rosbag_recording(fn)
         while (num_>0):
             self._pub_rate.publish(self._rate)
             elapsed = rospy.Time.now() - start
@@ -271,7 +276,7 @@ class Wobbler(object):
             #self._right_arm.set_joint_velocities(cmd)
             rate.sleep()
         self.set_neutral()
-        stop_rosbag_recording(rosbag_process)
+        stop_rosbag_recording(rp)
         time.sleep(0.5)
         self.place(pose)
 
@@ -390,7 +395,7 @@ def main():
     # Load Gazebo Models via Spawning Services
     # Note that the models reference is the /world frame
     # and the IK operates with respect to the /base frame
-    load_gazebo_models(0)
+    load_gazebo_models(7)
     # Remove models from the scene on shutdown
     rospy.on_shutdown(delete_gazebo_models)
 
@@ -415,7 +420,7 @@ def main():
     block_pose = Pose(position= Point(x=0.7, y=0.15, z=-0.145), orientation=overhead_orientation)
     wobbler = Wobbler()
     
-    for x in range(0,12):
+    for x in range(7,19):
         filename = str(x)
         for y in range(0,num_of_run):
             if(not rospy.is_shutdown()):
