@@ -421,7 +421,7 @@ def main():
     wobbler = Wobbler()
     
     for x in range(7,19):
-        filename = str(x)
+        filename = str(x-7)
         for y in range(0,num_of_run):
             if(not rospy.is_shutdown()):
                 wobbler.move_to_start(starting_joint_angles)

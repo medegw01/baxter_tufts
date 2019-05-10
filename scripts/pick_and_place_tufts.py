@@ -63,7 +63,9 @@ from baxter_core_msgs.srv import (
 )
 
 import baxter_interface
-
+# add noise here
+x_noise_endpoint = 0.09  # must be positive number
+y_noise_endpoint = 0.09  # must be positive number
 class PickAndPlace(object):
     def __init__(self, limb, hover_distance = 0.2, verbose=True):
         self._limb_name = limb # string
@@ -298,8 +300,8 @@ def stop_rosbag_recording(p):
 
 def addnoise_pose(overhead_orientation):
 	pose = Pose(position= Point(x=0.7, y=0.15, z=-0.129), orientation=overhead_orientation)
-	x = random.uniform(-0.09, 0.09)
-	y = random.uniform(-0.09, 0.09)
+	x = random.uniform(-1*x_noise_endpoint, x_noise_endpoint)
+	y = random.uniform(-1*y_noise_endpoint, y_noise_endpoint)
 	pose.position.x = pose.position.x + x
 	pose.position.y = pose.position.y + y
 	return pose
@@ -328,7 +330,7 @@ def main():
     # Load Gazebo Models via Spawning Services
     # Note that the models reference is the /world frame
     # and the IK operates with respect to the /base frame
-    load_gazebo_models(0)
+    load_gazebo_models(7)
     # Remove models from the scene on shutdown
     rospy.on_shutdown(delete_gazebo_models)
 
@@ -356,8 +358,8 @@ def main():
     block_pose = Pose(position= Point(x=0.7, y=0.15, z=-0.145), orientation=overhead_orientation)
   
     pnp.move_to_start(starting_joint_angles) 
-    for x in range(0,12):
-		filename = str(x)
+    for x in range(7,19):
+		filename = str(x-7)
 		for y in range(0,num_of_run):
 			if(not rospy.is_shutdown()):
 				pnp.pick(block_pose, filename)
