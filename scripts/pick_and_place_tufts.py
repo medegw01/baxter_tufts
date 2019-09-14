@@ -330,7 +330,7 @@ def main():
     # Load Gazebo Models via Spawning Services
     # Note that the models reference is the /world frame
     # and the IK operates with respect to the /base frame
-    load_gazebo_models(7)
+    load_gazebo_models(1)
     # Remove models from the scene on shutdown
     rospy.on_shutdown(delete_gazebo_models)
 
@@ -358,9 +358,9 @@ def main():
     block_pose = Pose(position= Point(x=0.7, y=0.15, z=-0.145), orientation=overhead_orientation)
   
     pnp.move_to_start(starting_joint_angles) 
-    for x in range(7,19):
-		filename = str(x-7)
-		for y in range(0,num_of_run):
+    for x in range(1, 25+1):
+		filename = str(x) #str(x-7)
+		for y in range(0, num_of_run):
 			if(not rospy.is_shutdown()):
 				pnp.pick(block_pose, filename)
 				tmp = addnoise_pose(overhead_orientation)
