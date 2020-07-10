@@ -29,6 +29,11 @@ where:
 
 
 ## Video demos:
+
+### Grasp, Pick, Shake and Place:
+
+<img src="pics/Baxter_pick_and_place_shake.gif" alt="drawing" width="600px"/>
+
 ### Pick and Place demo:
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/GDXMXK_m64g/0.jpg)](https://www.youtube.com/watch?v=GDXMXK_m64g)
 
