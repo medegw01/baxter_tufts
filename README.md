@@ -30,7 +30,7 @@ where:
 
 ## Video demos:
 
-### Grasp, Pick, Shake and Place:
+### Grasp, Pick, Hold, Shake and Place:
 
 <img src="pics/Baxter_pick_and_place_shake.gif" alt="drawing" width="600px"/>
 
