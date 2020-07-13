@@ -30,12 +30,12 @@ where:
 
 ## Video demos:
 
-### Grasp, Pick, Hold, Shake and Place:
+### Grasp, Pick, Hold, Shake and Place(Gif):
 
 <img src="pics/Baxter_pick_and_place_shake.gif" alt="drawing" width="600px"/>
 
-### Pick and Place demo:
+### Pick and Place demo(Full Video):
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/GDXMXK_m64g/0.jpg)](https://www.youtube.com/watch?v=GDXMXK_m64g)
 
-### Push Different Mass demo:
+### Push Different Mass demo(Full Video):
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/sgkIpK8fFvA/0.jpg)](https://www.youtube.com/watch?v=sgkIpK8fFvA&feature=youtu.be)
