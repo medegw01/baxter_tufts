@@ -28,7 +28,7 @@ where:
 - num_of_run                  -> number of desired time the robot should pick block. Number should be greater than
 
 
-## Video demos:
+## Demos:
 
 ### Grasp, Pick, Hold, Shake and Place(Gif):
 
